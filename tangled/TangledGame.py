@@ -1,7 +1,7 @@
 from __future__ import print_function
 import sys
-import itertools
 import numpy as np
+import networkx as nx
 
 from Game import Game
 from .TangledLogic import Board, calculateScore
@@ -18,21 +18,21 @@ class TangledGame(Game):
     def getInitBoard(self):
         # return initial board (numpy board)
         if self.name == "K4":
-            v, edges, adj_matrix = create_k4_graph()
+            v, edges, adj_matrix, aut = create_k4_graph()
         elif self.name == "C4":
-            v, edges, adj_matrix = create_c4_graph()
+            v, edges, adj_matrix, aut = create_c4_graph()
         elif self.name == "Petersen":
-            v, edges, adj_matrix = create_petersen_graph()
+            v, edges, adj_matrix, aut = create_petersen_graph()
         elif self.name == "Q3":
-            v, edges, adj_matrix = create_q3_graph()
+            v, edges, adj_matrix, aut = create_q3_graph()
         elif self.name == "Q4":
-            v, edges, adj_matrix = create_q4_graph()
+            v, edges, adj_matrix, aut = create_q4_graph()
         elif self.name == "Q5":
-            v, edges, adj_matrix = create_q5_graph()
+            v, edges, adj_matrix, aut = create_q5_graph()
         else:
-            v, edges, adj_matrix = create_k3_graph()
+            v, edges, adj_matrix, aut = create_k3_graph()
 
-        self.board = Board(v, edges, adj_matrix)
+        self.board = Board(v, edges, adj_matrix, aut)
 
         return self.board.pieces
 
@@ -47,7 +47,7 @@ class TangledGame(Game):
     def getNextState(self, board, player, action):
         # if player takes action on board, return next (board,player)
         # action must be a valid move
-        b = Board(self.board.v, self.board.edges, self.board.adj_matrix)
+        b = Board(self.board.v, self.board.edges, self.board.adj_matrix, self.board.aut)
         b.pieces = np.copy(board)
         # b = self.board
         # b.pieces = np.copy(board)
@@ -57,7 +57,7 @@ class TangledGame(Game):
         return b.pieces, -player
 
     def getValidMoves(self, board, player):
-        b = Board(self.board.v, self.board.edges, self.board.adj_matrix)
+        b = Board(self.board.v, self.board.edges, self.board.adj_matrix, self.board.aut)
         b.pieces = np.copy(board)
         # b = self.board
         # b.pieces = np.copy(board)
@@ -67,7 +67,7 @@ class TangledGame(Game):
     def getGameEnded(self, board, player):
         # return 0 if not ended, 1 if player 1 won, -1 if player 1 lost
         # player = 1
-        b = Board(self.board.v, self.board.edges, self.board.adj_matrix)
+        b = Board(self.board.v, self.board.edges, self.board.adj_matrix, self.board.aut)
         b.pieces = np.copy(board)
         # b = self.board
         # b.pieces = np.copy(board)
@@ -85,7 +85,7 @@ class TangledGame(Game):
 
     def getCanonicalForm(self, board, player):
         # return state if player==1, else return -state if player==-1
-        b = Board(self.board.v, self.board.edges, self.board.adj_matrix)
+        b = Board(self.board.v, self.board.edges, self.board.adj_matrix, self.board.aut)
         b.pieces = np.copy(board)
         # b = self.board
         # b.pieces = np.copy(board)
@@ -96,67 +96,119 @@ class TangledGame(Game):
 
         return b.pieces
 
+    import numpy as np
+
     def getSymmetries(self, board, pi):
-        syms = [(board, pi)]
+        syms = []
+        n = self.board.v
 
-        # edge_idx_map = {edge: idx for idx, edge in enumerate(list(self.board.edges))}
-        #
-        # pieces = board[:self.board.v, :]
-        # spaces = board[self.board.v:, :]
-        #
-        # edge_pi = pi[:3*self.board.e]
-        # vertex_pi = pi[3*self.board.e:]
-        #
-        # for _ in range(self.board.v):
-        #     # roll matrix
-        #     sym_pieces = np.roll(pieces, axis=0, shift=1)
-        #     sym_pieces = np.roll(sym_pieces, axis=1, shift=1)
-        #     sym_spaces = np.roll(spaces, axis=0, shift=1)
-        #     sym_spaces = np.roll(sym_spaces, axis=1, shift=1)
-        #
-        #     # roll pi
-        #     sym_edge_pi = np.roll(edge_pi, axis=0, shift=3)
-        #     sym_vertex_pi = np.roll(vertex_pi, axis=0, shift=1)
-        #
-        #     # reassemble the symmetric board
-        #     sym_board = np.vstack((sym_pieces, sym_spaces))
-        #
-        #     # reassemble pi
-        #     sym_pi = np.hstack((sym_edge_pi, sym_vertex_pi))
-        #
-        #     syms += [(sym_board, sym_pi)]
+        # Split pi into edge and vertex probabilities
+        edge_pi = pi[:3 * self.board.e]
+        vertex_pi = np.array(pi[3 * self.board.e:])  # Convert to NumPy array for advanced indexing
 
-        # edge_pi = pi[:3*self.board.e]
-        # vertex_pi = pi[3*self.board.e:]
-        #
-        # # Generate all permutations of the rows of the identity matrix
-        # permutations = itertools.permutations(np.eye(self.board.v, dtype=int))
-        #
-        # for perm in permutations:
-        #     perm_matrix = np.array(perm)
-        #
-        #     # transform adjacency matrix
-        #     sym_adj_matrix = perm_matrix @ self.board.adj_matrix @ np.transpose(perm_matrix)
-        #
-        #     # transform edge pieces and spaces
-        #     sym_pieces = perm_matrix @ self.board.pieces[:self.board.v, :] @ np.transpose(perm_matrix)
-        #     sym_spaces = perm_matrix @ self.board.pieces[self.board.v:, :] @ np.transpose(perm_matrix)
-        #
-        #     # reassemble the symmetric board
-        #     sym_board = np.vstack((sym_pieces, sym_spaces))
-        #
-        #     # find pi edge mapping
-        #     edge_map_rows = np.any(self.board.adj_matrix != 0, axis=1)
-        #     edge_map_cols = np.any(self.board.adj_matrix != 0, axis=0)
-        #     edge_map = sym_adj_matrix[edge_map_rows][:, edge_map_cols]
-        #
-        #     # transform pi
-        #     sym_edgen1_pi = edge_map @ edge_pi[0::3]
-        #     sym_edge0_pi = edge_map @ edge_pi[1::3]
-        #     sym_edgep1_pi = edge_map @ edge_pi[2::3]
-        #     sym_vertex_pi = perm_matrix @ vertex_pi
+        # Initialize a 3D matrix for edge probabilities
+        pi_matrix = np.zeros((3, n, n))
+
+        # Fill the edge probabilities into pi_matrix
+        for idx, (x, y) in enumerate(self.board.edges):
+            pi_matrix[0, x, y] = edge_pi[3 * idx]
+            pi_matrix[0, y, x] = edge_pi[3 * idx]
+            pi_matrix[1, x, y] = edge_pi[3 * idx + 1]
+            pi_matrix[1, y, x] = edge_pi[3 * idx + 1]
+            pi_matrix[2, x, y] = edge_pi[3 * idx + 2]
+            pi_matrix[2, y, x] = edge_pi[3 * idx + 2]
+
+        for aut in self.board.aut:
+            # Create a permutation matrix based on the automorphism
+            perm_matrix = np.zeros((n, n))
+            for i in range(n):
+                perm_matrix[i, aut[i]] = 1
+
+            # Apply the permutation to the board
+            sym_board1 = perm_matrix @ board[:self.board.v, :] @ perm_matrix.T
+            sym_board2 = perm_matrix @ board[self.board.v:, :] @ perm_matrix.T
+            sym_board = np.vstack((sym_board1, sym_board2))
+
+            # Apply permutation to edge probabilities
+            sym_edgen1_pi_matrix = perm_matrix @ pi_matrix[0, :, :] @ perm_matrix.T
+            sym_edge0_pi_matrix = perm_matrix @ pi_matrix[1, :, :] @ perm_matrix.T
+            sym_edgep1_pi_matrix = perm_matrix @ pi_matrix[2, :, :] @ perm_matrix.T
+
+            # Convert the automorphism to a list of indices if it's not already
+            aut_indices = [aut[i] for i in range(n)]
+
+            # Apply permutation to vertex probabilities using advanced indexing
+            sym_vertex_pi = vertex_pi[aut_indices]
+
+            # Collect symmetric edge probabilities
+            sym_edgen1_pi = np.zeros(self.board.e)
+            sym_edge0_pi = np.zeros(self.board.e)
+            sym_edgep1_pi = np.zeros(self.board.e)
+
+            for idx, (x, y) in enumerate(self.board.edges):
+                sym_edgen1_pi[idx] = sym_edgen1_pi_matrix[x, y]
+                sym_edge0_pi[idx] = sym_edge0_pi_matrix[x, y]
+                sym_edgep1_pi[idx] = sym_edgep1_pi_matrix[x, y]
+
+            # Combine symmetric edge and vertex probabilities
+            sym_edge_pi = np.hstack((sym_edgen1_pi, sym_edge0_pi, sym_edgep1_pi)).reshape(-1)
+            sym_pi = np.hstack((sym_edge_pi, sym_vertex_pi))
+
+            syms.append((sym_board, sym_pi))
 
         return syms
+
+    # def getSymmetries(self, board, pi):
+    #     syms = []
+    #
+    #     n = self.board.v
+    #
+    #     edge_pi = pi[:3*self.board.e]
+    #     vertex_pi = pi[3*self.board.e:]
+    #     pi_matrix = np.zeros((3, n, n))
+    #
+    #     for idx, (x, y) in enumerate(self.board.edges):
+    #         pi_matrix[0, x, y] = edge_pi[3 * idx]
+    #         pi_matrix[0, y, x] = edge_pi[3 * idx]
+    #         pi_matrix[1, x, y] = edge_pi[3 * idx + 1]
+    #         pi_matrix[1, y, x] = edge_pi[3 * idx + 1]
+    #         pi_matrix[2, x, y] = edge_pi[3 * idx + 2]
+    #         pi_matrix[2, y, x] = edge_pi[3 * idx + 2]
+    #
+    #     for i in range(n):
+    #         pi_matrix[0, i, i] = vertex_pi[i]
+    #
+    #     for aut in self.board.aut:
+    #         # Create a permutation matrix
+    #         perm_matrix = np.zeros((n, n))
+    #
+    #         for i in range(n):
+    #             perm_matrix[i, aut[i]] = 1
+    #
+    #         sym_board1 = perm_matrix @ board[:self.board.v, :] @ perm_matrix.T
+    #         sym_board2 = perm_matrix @ board[self.board.v:, :] @ perm_matrix.T
+    #         sym_board = np.vstack((sym_board1, sym_board2))
+    #
+    #         sym_edgen1_pi_matrix = perm_matrix @ pi_matrix[0, :, :] @ perm_matrix.T
+    #         sym_edge0_pi_matrix = perm_matrix @ pi_matrix[1, :, :] @ perm_matrix.T
+    #         sym_edgep1_pi_matrix = perm_matrix @ pi_matrix[2, :, :] @ perm_matrix.T
+    #         sym_vertex = np.diag(sym_edgen1_pi_matrix)
+    #
+    #         sym_edgen1_pi = np.zeros(self.board.e)
+    #         sym_edge0_pi = np.zeros(self.board.e)
+    #         sym_edgep1_pi = np.zeros(self.board.e)
+    #
+    #         for idx, (x, y) in enumerate(self.board.edges):
+    #             sym_edgen1_pi[idx] = sym_edgen1_pi_matrix[x, y]
+    #             sym_edge0_pi[idx] = sym_edge0_pi_matrix[x, y]
+    #             sym_edgep1_pi[idx] = sym_edgep1_pi_matrix[x, y]
+    #
+    #         sym_edge_pi = np.hstack((sym_edgen1_pi, sym_edge0_pi, sym_edgep1_pi)).reshape(-1)
+    #         sym_pi = np.hstack((sym_edge_pi, sym_vertex))
+    #
+    #         syms += [(sym_board, sym_pi)]
+    #
+    #     return syms
 
     def stringRepresentation(self, board):
         return board.tobytes()

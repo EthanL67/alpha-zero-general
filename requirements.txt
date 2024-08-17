@@ -47,4 +47,3 @@ numba
 networkx
 setuptools
 scipy
-pynauty

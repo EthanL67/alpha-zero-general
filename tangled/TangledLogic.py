@@ -15,7 +15,7 @@ Layer 2 is identical to the above, but tracks whether the space is occupied.
 
 
 class Board():
-    def __init__(self, v, edges, adj_matrix):
+    def __init__(self, v, edges, adj_matrix, aut):
         """
         Set up initial board configuration.
         """
@@ -23,6 +23,7 @@ class Board():
         self.edges = edges
         self.e = len(edges)
         self.adj_matrix = adj_matrix
+        self.aut = aut
 
         self.pieces = np.zeros((2 * self.v, self.v), dtype="int32")
         self.pieces[self.v:, :] = self.adj_matrix

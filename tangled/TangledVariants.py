@@ -3,11 +3,12 @@ import numpy as np
 
 
 class TangledVariant:
-    def __init__(self, v, edges, adj_matrix):
+    def __init__(self, v, edges, adj_matrix, aut):
         self.v = v
         self.edges = edges
         self.e = len(edges)
         self.adj_matrix = adj_matrix
+        self.aut = aut
 
 
 def create_k3_graph():
@@ -15,7 +16,9 @@ def create_k3_graph():
     v = int(nx.number_of_nodes(G))
     edges = np.array(G.edges, dtype=np.int32)
     adj_matrix = np.array(nx.adjacency_matrix(G).todense(), dtype=np.int32)
-    return v, edges, adj_matrix
+    aut = list(nx.algorithms.isomorphism.GraphMatcher(G, G).isomorphisms_iter())
+
+    return v, edges, adj_matrix, aut
 
 
 def create_k4_graph():
@@ -23,7 +26,9 @@ def create_k4_graph():
     v = int(nx.number_of_nodes(G))
     edges = np.array(G.edges, dtype=np.int32)
     adj_matrix = np.array(nx.adjacency_matrix(G).todense(), dtype=np.int32)
-    return v, edges, adj_matrix
+    aut = list(nx.algorithms.isomorphism.GraphMatcher(G, G).isomorphisms_iter())
+
+    return v, edges, adj_matrix, aut
 
 
 def create_c4_graph():
@@ -31,7 +36,9 @@ def create_c4_graph():
     v = int(nx.number_of_nodes(G))
     edges = np.array(G.edges, dtype=np.int32)
     adj_matrix = np.array(nx.adjacency_matrix(G).todense(), dtype=np.int32)
-    return v, edges, adj_matrix
+    aut = list(nx.algorithms.isomorphism.GraphMatcher(G, G).isomorphisms_iter())
+
+    return v, edges, adj_matrix, aut
 
 
 def create_petersen_graph():
@@ -39,7 +46,9 @@ def create_petersen_graph():
     v = int(nx.number_of_nodes(G))
     edges = np.array(G.edges, dtype=np.int32)
     adj_matrix = np.array(nx.adjacency_matrix(G).todense(), dtype=np.int32)
-    return v, edges, adj_matrix
+    aut = list(nx.algorithms.isomorphism.GraphMatcher(G, G).isomorphisms_iter())
+
+    return v, edges, adj_matrix, aut
 
 
 def create_q3_graph():
@@ -48,7 +57,9 @@ def create_q3_graph():
     v = int(nx.number_of_nodes(G))
     edges = np.array(G.edges, dtype=np.int32)
     adj_matrix = np.array(nx.adjacency_matrix(G).todense(), dtype=np.int32)
-    return v, edges, adj_matrix
+    aut = list(nx.algorithms.isomorphism.GraphMatcher(G, G).isomorphisms_iter())
+
+    return v, edges, adj_matrix, aut
 
 
 def create_q4_graph():
@@ -57,7 +68,9 @@ def create_q4_graph():
     v = int(nx.number_of_nodes(G))
     edges = np.array(G.edges, dtype=np.int32)
     adj_matrix = np.array(nx.adjacency_matrix(G).todense(), dtype=np.int32)
-    return v, edges, adj_matrix
+    aut = list(nx.algorithms.isomorphism.GraphMatcher(G, G).isomorphisms_iter())
+
+    return v, edges, adj_matrix, aut
 
 
 def create_q5_graph():
@@ -66,4 +79,6 @@ def create_q5_graph():
     v = int(nx.number_of_nodes(G))
     edges = np.array(G.edges, dtype=np.int32)
     adj_matrix = np.array(nx.adjacency_matrix(G).todense(), dtype=np.int32)
-    return v, edges, adj_matrix
+    aut = list(nx.algorithms.isomorphism.GraphMatcher(G, G).isomorphisms_iter())
+
+    return v, edges, adj_matrix, aut
