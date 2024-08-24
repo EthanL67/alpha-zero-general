@@ -17,10 +17,10 @@ from .TangledNNet import TangledNNet as onnet
 args = dotdict({
     'lr': 0.001,
     'dropout': 0.3,
-    'epochs': 10,
-    'batch_size': 128,
+    'epochs': 20,
+    'batch_size': 128,  # 128 max for Q5 on 3090 24GB
     'cuda': torch.cuda.is_available(),
-    'num_channels': 512,
+    'num_channels': 200,
 })
 
 torch.set_float32_matmul_precision('high')
@@ -53,9 +53,9 @@ class NNetWrapper(NeuralNet):
             for _ in t:
                 sample_ids = np.random.randint(len(examples), size=args.batch_size)
                 boards, pis, vs = list(zip(*[examples[i] for i in sample_ids]))
-                boards = torch.FloatTensor(np.array(boards).astype(np.float64))
+                boards = torch.FloatTensor(np.array(boards).astype(np.float32))
                 target_pis = torch.FloatTensor(np.array(pis))
-                target_vs = torch.FloatTensor(np.array(vs).astype(np.float64))
+                target_vs = torch.FloatTensor(np.array(vs).astype(np.float32))
 
                 # predict
                 if args.cuda:

@@ -25,7 +25,7 @@ class Board():
         self.adj_matrix = adj_matrix
         self.aut = aut
 
-        self.pieces = np.zeros((2 * self.v, self.v), dtype="int32")
+        self.pieces = np.zeros((2 * self.v, self.v), dtype=np.int8)
         self.pieces[self.v:, :] = self.adj_matrix
         for i in range(self.v):
             self.pieces[self.v + i, i] = 1
@@ -35,12 +35,26 @@ class Board():
         Returns all the legal moves
         @param color not used and came from previous version.
         """
-        v_pieces = np.diag(self.pieces[:self.v, :])
-        v_spaces = np.diag(self.pieces[self.v:, :])
+        v_pieces = np.zeros(self.v)
+        v_spaces = np.zeros(self.v)
+
+        for i in range(self.v):
+            v_pieces[i] = self.pieces[i, i]
+            v_spaces[i] = self.pieces[self.v + i, i]
+
         e_spaces = np.copy(self.pieces[self.v:, :])
-        np.fill_diagonal(e_spaces, 0)
+
+        for i in range(self.v):
+            e_spaces[i, i] = 0
 
         legal_moves = np.zeros(3 * self.e + self.v, dtype="bool")
+
+        # If the player has already selected a vertex, they may not select another
+        if player not in v_pieces:
+            # Check open vertices
+            for i in range(self.v):
+                if v_spaces[i] == 1:
+                    legal_moves[3 * self.e + i] = True
 
         # If all edges except one have been filled, and the player has not selected a vertex, we must select a vertex
         if np.sum(e_spaces) > 2 or player in v_pieces:
@@ -49,13 +63,6 @@ class Board():
                 edge_index = self.edges[i]
                 if e_spaces[edge_index[0], edge_index[1]] == 1:
                     legal_moves[3*i:3*i+3] = True
-
-        # If the player has already selected a vertex, they may not select another
-        if player not in v_pieces:
-            # Check open vertices
-            for i in range(self.v):
-                if v_spaces[i] == 1:
-                    legal_moves[3 * self.e + i] = True
 
         return legal_moves
 
@@ -75,14 +82,14 @@ class Board():
         # print(self.pieces[self.v:, :])
         # print("Legal moves: ", self.get_legal_moves(player))
         # print("Action: ", action)
-
+        #
         # assert self.get_legal_moves(player)[action] == True
 
         # edge is played
         if action < self.e * 3:
             idx = int(action / 3)
             color = (action % 3) - 1
-            # print("edge action idx: ", idx, ", color: ", color)self.board_data.
+            # print("edge action idx: ", idx, ", color: ", color)
 
             edge_index = self.edges[idx]
 
@@ -98,95 +105,157 @@ class Board():
             self.pieces[node, node] = player
             self.pieces[self.v + node, node] = 0
 
-def calculateScore(pieces, v):
 
+def calculateScore(pieces, v):
     def qubo_energy(qubo: np.ndarray, offset: np.number, sample: np.ndarray) -> np.number:
         """Calculate the energy of a sample."""
         return np.dot(sample, np.dot(qubo, sample)) + offset
 
     J = np.copy(pieces[:v, :])
-
-    # Fill the diagonal with 0
     np.fill_diagonal(J, 0)
     vertices = np.diag(pieces[:v, :])
 
     if np.all(J == 0):
         return 0
 
-    # Define binary variables
-    spins = [Spin(f'spin_{i}') for i in range(v)]
-
-    # Construct the Hamiltonian
+    # Define binary variables and construct the Hamiltonian
+    spins = np.array([Spin(f'spin_{i}') for i in range(v)])
     H = 0.5 * np.sum(J * np.outer(spins, spins))
 
     # Compile the model to a binary quadratic model (BQM)
     model = H.compile()
     qubo, offset = model.to_qubo(index_label=True)
 
-    if len(qubo) == 0:
+    if not qubo:
         return 0
 
-    # Initialize the 2D NumPy array with zeros
+    # Initialize the 2D NumPy array with zeros and fill it with qubo values
     q = np.zeros((v, v))
-
-    # Fill the array with the values from the dictionary
-    for index, value in qubo.items():
-        q[index] = value
+    for (i, j), value in qubo.items():
+        q[i, j] = value
 
     if v < 24:
         # brute-force
         energies = solve_gpu(q, offset)
 
-        # Find the minimum energy
-        min_energy = energies.min()
-
-        # Find all indices with the minimum energy
+        # Find the minimum energy and its indices
+        min_energy = np.min(energies)
         min_indices = np.where(energies == min_energy)[0]
 
-        # Create a set to store unique solutions
-        unique_solutions = set()
-
-        for index in min_indices:
-            # Get the solution bits for the current index
-            solution = bits(index, nbits=v)
-
-            # Convert the solution to a tuple to make it hashable
-            solution_tuple = tuple(solution)
-
-            # Check if the solution is unique
-            if solution_tuple not in unique_solutions:
-                unique_solutions.add(solution_tuple)
+        # Generate unique solutions
+        unique_solutions = {tuple(bits(idx, nbits=v)) for idx in min_indices}
 
     else:
-        energies, solutions = simulate_annealing_gpu(q, offset, n_iter=1000, n_samples=10000, temperature=1.0,
-                                                     cooling_rate=0.99)
+        # Simulated annealing
+        energies, solutions = simulate_annealing_gpu(q, offset, n_iter=1000, n_samples=10000, temperature=1.0, cooling_rate=0.99)
 
-        # Find the minimum energy
-        min_energy = energies.min()
-
-        # Find all indices with the minimum energy
+        # Find the minimum energy and its indices
+        min_energy = np.min(energies)
         min_indices = np.where(energies == min_energy)[0]
 
-        # Create a set to store unique solutions
-        unique_solutions = set()
+        # Generate unique solutions
+        unique_solutions = {tuple(solutions[idx]) for idx in min_indices}
 
-        for index in min_indices:
-            # Convert the solution to a tuple to make it hashable
-            solution_tuple = tuple(solutions[index])
-            if solution_tuple not in unique_solutions:
-                unique_solutions.add(solution_tuple)
-
-
-
-    # assign an equal probability of finding each of the ground states
+    # Equal probability for each ground state
     prob = 1 / len(unique_solutions)
 
-    # Convert the list of lists to a 2D NumPy array
-    unique_solutions_np = np.array([list(tup) for tup in unique_solutions])
+    # Convert unique solutions to NumPy array
+    unique_solutions_np = np.array(list(unique_solutions))
 
+    # Calculate correlation and scores
     C = np.corrcoef(unique_solutions_np, rowvar=False)
-
     scores = np.sum(C, axis=1) - 1
     score = np.dot(scores, vertices)
 
     return score
+
+# def calculateScore(pieces, v):
+#
+#     def qubo_energy(qubo: np.ndarray, offset: np.number, sample: np.ndarray) -> np.number:
+#         """Calculate the energy of a sample."""
+#         return np.dot(sample, np.dot(qubo, sample)) + offset
+#
+#     J = np.copy(pieces[:v, :])
+#
+#     # Fill the diagonal with 0
+#     np.fill_diagonal(J, 0)
+#     vertices = np.diag(pieces[:v, :])
+#
+#     if np.all(J == 0):
+#         return 0
+#
+#     # Define binary variables
+#     spins = [Spin(f'spin_{i}') for i in range(v)]
+#
+#     # Construct the Hamiltonian
+#     H = 0.5 * np.sum(J * np.outer(spins, spins))
+#
+#     # Compile the model to a binary quadratic model (BQM)
+#     model = H.compile()
+#     qubo, offset = model.to_qubo(index_label=True)
+#
+#     if len(qubo) == 0:
+#         return 0
+#
+#     # Initialize the 2D NumPy array with zeros
+#     q = np.zeros((v, v))
+#
+#     # Fill the array with the values from the dictionary
+#     for index, value in qubo.items():
+#         q[index] = value
+#
+#     if v < 24:
+#         # brute-force
+#         energies = solve_gpu(q, offset)
+#
+#         # Find the minimum energy
+#         min_energy = energies.min()
+#
+#         # Find all indices with the minimum energy
+#         min_indices = np.where(energies == min_energy)[0]
+#
+#         # Create a set to store unique solutions
+#         unique_solutions = set()
+#
+#         for index in min_indices:
+#             # Get the solution bits for the current index
+#             solution = bits(index, nbits=v)
+#
+#             # Convert the solution to a tuple to make it hashable
+#             solution_tuple = tuple(solution)
+#
+#             # Check if the solution is unique
+#             if solution_tuple not in unique_solutions:
+#                 unique_solutions.add(solution_tuple)
+#
+#     else:
+#         energies, solutions = simulate_annealing_gpu(q, offset, n_iter=1000, n_samples=10000, temperature=1.0,
+#                                                      cooling_rate=0.99)
+#
+#         # Find the minimum energy
+#         min_energy = energies.min()
+#
+#         # Find all indices with the minimum energy
+#         min_indices = np.where(energies == min_energy)[0]
+#
+#         # Create a set to store unique solutions
+#         unique_solutions = set()
+#
+#         for index in min_indices:
+#             # Convert the solution to a tuple to make it hashable
+#             solution_tuple = tuple(solutions[index])
+#             if solution_tuple not in unique_solutions:
+#                 unique_solutions.add(solution_tuple)
+#
+#     # assign an equal probability of finding each of the ground states
+#     prob = 1 / len(unique_solutions)
+#
+#     # Convert the list of lists to a 2D NumPy array
+#     unique_solutions_np = np.array([list(tup) for tup in unique_solutions])
+#
+#     C = np.corrcoef(unique_solutions_np, rowvar=False)
+#
+#     scores = np.sum(C, axis=1) - 1
+#     score = np.dot(scores, vertices)
+#
+#     return score
